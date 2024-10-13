@@ -1,0 +1,77 @@
+
+body = { SOI ~ weeks ~ EOI }
+
+weeks = { newline* ~ week ~ (newline+ ~ week)* ~ newline* }
+
+week = { "WEEK" ~ DATE ~ newline ~ days }
+
+days = { day ~ (newline ~ day){0,4} }
+
+day = { TAB ~ WEEKDAY ~ newline ~ logs }
+
+logs = { log+ }
+
+log = { TAB ~ TAB ~ log_event ~ newline }
+
+log_event =
+    { work
+    | working_day
+    | lunch
+    | break
+    | leave
+    }
+
+NOW = { "NOW" } // Come back to this. You can imply this without having to do this.
+
+time_range_end = { TIME | NOW }
+
+time_range = { TIME ~ "-" ~ time_range_end }
+    
+time_period = { PERIOD | time_range }
+
+work = { "WORK" ~ time_period ~ summary }
+
+working_day = { "WORKING DAY" ~ time_period ~ summary? }
+
+break = { "BREAK" ~ time_period ~ summary }
+
+leave = { "LEAVE" ~ time_period ~ summary? }
+
+lunch = { "LUNCH" ~ time_period ~ summary? }
+
+newline = _{ NEWLINE }
+
+summary = _{ "|" ~ SUMMARY }
+
+SUMMARY = { REST_OF_LINE }
+
+DATE = { REST_OF_LINE } // Might want to refine this, later... might not.
+
+REST_OF_LINE = _{ (&!NEWLINE ~ ANY)+ }
+
+TIME = { NUMBER{2} ~ ":" ~ NUMBER{2} }
+
+PERIOD_MINUTES = { numbers ~ "m" }
+
+PERIOD_HOURS = { numbers ~ "h" }
+
+numbers = { NUMBER+ }
+
+period_hours_minutes = { PERIOD_HOURS ~ PERIOD_MINUTES? }
+
+PERIOD =
+    { PERIOD_MINUTES
+    | period_hours_minutes
+    }
+
+WEEKDAY =
+    { "Monday"
+    | "Tuesday"
+    | "Wednesday"
+    | "Thursday"
+    | "Friday"
+    }
+
+TAB = @{ " "{2} }
+
+WHITESPACE = _{ &!TAB ~ " " }
