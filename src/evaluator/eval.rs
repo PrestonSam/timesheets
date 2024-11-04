@@ -4,9 +4,8 @@ use chrono::{Local, TimeDelta};
 use once_cell::sync::Lazy;
 
 use crate::packer::{
-    BreakLog, Date, Day, Days, Hours, HoursMinutes, LeaveLog, Log, LogEvent, Logs, LunchLog,
-    Minutes, Numbers, Period, Time, TimePeriod, TimeRange, TimeRangeEnd,
-    Week, Weekday, Weeks, WorkLog, WorkingDayLog
+    BreakLog, Date, Day, Days, Hours, HoursMinutes, LeaveLog, Log, LogEvent, Logs, LunchLog, Minutes, Number,
+    Period, Time, TimePeriod, TimeRange, TimeRangeEnd, Week, Weekday, Weeks, WorkLog, WorkingDayLog
 };
 
 #[derive(Debug)]
@@ -56,7 +55,7 @@ impl Display for WeekDelta {
             f.write_fmt(format_args!("    │ {:<5} │ {weekday}\n", delta_to_str(&delta)))?;
         }
 
-        f.write_fmt(format_args!("    └───────┘\n"))?;
+        f.write_str("    └───────┘\n")?;
 
         Ok(())
     }
@@ -87,7 +86,7 @@ impl Display for TotalDelta {
             }
         }
 
-        f.write_fmt(format_args!("    ┌───────┐\n"))?;
+        f.write_str("    ┌───────┐\n")?;
         f.write_fmt(format_args!(
             "    │ {:<5} │ TOTAL {} BEFORE TODAY\n",
             delta_to_str(&self.total_delta_excluding_today),
@@ -98,7 +97,7 @@ impl Display for TotalDelta {
             delta_to_str(&self.total_delta),
             get_credit_str(&self.total_delta)
         ))?;
-        f.write_fmt(format_args!("    └───────┘\n"))?;
+        f.write_str("    └───────┘\n")?;
 
         Ok(())
     }
@@ -106,10 +105,10 @@ impl Display for TotalDelta {
 
 fn eval_period(period: Period) -> Result<TimeDelta, EvalError> {
     match period {
-        Period::HoursMinutes(HoursMinutes(Hours(Numbers(hours)), Minutes(Numbers(minutes)))) =>
+        Period::HoursMinutes(HoursMinutes(Hours(Number(hours)), Minutes(Number(minutes)))) =>
             Ok(TimeDelta::hours(hours as i64) + TimeDelta::minutes(minutes as i64)),
 
-        Period::Minutes(Minutes(Numbers(minutes))) =>
+        Period::Minutes(Minutes(Number(minutes))) =>
             Ok(TimeDelta::minutes(minutes as i64)),
     }
 }
@@ -121,7 +120,7 @@ fn eval_time_range(time_range: TimeRange) -> Result<TimeDelta, EvalError> {
         TimeRangeEnd::Time(Time(end)) =>
             end,
 
-        TimeRangeEnd::Now =>
+        TimeRangeEnd::Now(_) =>
             Local::now().time(),
     };
 

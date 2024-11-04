@@ -41,9 +41,7 @@ lunch = { "LUNCH" ~ time_period ~ summary? }
 
 newline = _{ NEWLINE }
 
-summary = _{ "|" ~ SUMMARY }
-
-SUMMARY = { REST_OF_LINE }
+summary = _{ "|" ~ REST_OF_LINE }
 
 DATE = { REST_OF_LINE } // Might want to refine this, later... might not.
 

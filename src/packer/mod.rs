@@ -1,16 +1,10 @@
-use generic_utils::SyntaxTree;
 use pest::iterators::Pairs;
-use pack_trees::{unpack_only_tree, TokenPacker};
 
-pub use packer::*;
-pub use generic_utils::{DropRules, PackingError};
-pub use generic_model::PackingErrorVariant;
-
+use token_packer::{generic_model::PackingErrorVariant, generic_utils::{PackingError, SyntaxTree}, pack_trees::{unpack_only_tree, TokenPacker}};
 use crate::parser::Rule;
 
-mod generic_utils;
-mod pack_trees;
-mod generic_model;
+pub use packer::*;
+
 mod packer;
 
 
