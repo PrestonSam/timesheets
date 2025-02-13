@@ -2,13 +2,12 @@ use std::{fs::read_to_string, ops::Not, path::PathBuf};
 
 use chrono::{DateTime, Local, TimeDelta};
 use clap::Parser;
+use cli::parse_cli;
 use evaluator::{evaluate_timesheets, EvalError, TotalDelta, WeekDelta};
-use packer::pack;
-use parser::{parse_timesheets, Rule};
-use token_packer::{generic_model::PackingErrorVariant, generic_utils::PackingError};
+use parser::{parse_timesheets, ParsingError};
 
+mod cli;
 mod parser;
-mod packer;
 mod evaluator;
 
 #[derive(Parser, Debug)]
@@ -26,9 +25,18 @@ struct Args {
 #[derive(Debug)]
 enum TimesheetsError {
     FileReadError(std::io::Error),
-    ParsingError(::pest::error::Error<Rule>),
-    PackingError(PackingError<PackingErrorVariant<Rule>, Rule>),
+    ParsingError(ParsingError),
     EvalError(EvalError),
+}
+
+impl std::fmt::Display for TimesheetsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TimesheetsError::FileReadError(err) => err.fmt(f),
+            TimesheetsError::ParsingError(err) => err.fmt(f),
+            TimesheetsError::EvalError(err) => err.fmt(f),
+        }
+    }
 }
 
 fn get_lunch_deadline(deadline: &DateTime<Local>, week_deltas: &Vec<WeekDelta>) -> Option<DateTime<Local>> {
@@ -39,6 +47,9 @@ fn get_lunch_deadline(deadline: &DateTime<Local>, week_deltas: &Vec<WeekDelta>) 
 }
 
 fn announce_deadline(total_delta: TotalDelta) {
+    // TODO record earliest start time for day
+    // Use that as the reference point to see if you've worked 7.5 hours yet.
+    // Figure out the difference and add that to the time.
     let deadline = Local::now() - total_delta.total_delta;
     let deadline_str = deadline.format("%H:%M");
 
@@ -69,20 +80,24 @@ fn announce_deadline(total_delta: TotalDelta) {
     println!("    └───────┘")
 }
 
-fn main() -> Result<(), TimesheetsError> {
-    let args = Args::parse();
+fn run_timesheets() -> Result<(), TimesheetsError> {
+    let args = parse_cli();
 
-    let code = read_to_string(args.file_path).map_err(TimesheetsError::FileReadError)?;
+    match &args.command {
+        cli::Action::Start { log_type, time_range } =>
+            println!("{log_type:?}: {time_range}"),
+
+        cli::Action::End { log_type, time_range } =>
+            println!("{log_type:?}: {time_range}"),
+    }
+
+    let code = read_to_string(args.file_path)
+        .map_err(TimesheetsError::FileReadError)?;
 
     let timesheets = parse_timesheets(&code)
-        .inspect_err(|err| eprintln!("{err}"))
         .map_err(TimesheetsError::ParsingError)?;
 
-    let weeks = pack(timesheets)
-        .inspect_err(|err| eprintln!("{err}"))
-        .map_err(TimesheetsError::PackingError)?;
-
-    let total_delta = evaluate_timesheets(weeks)
+    let total_delta = evaluate_timesheets(timesheets)
         .map_err(TimesheetsError::EvalError)?;
 
     print!("{total_delta}");
@@ -90,4 +105,11 @@ fn main() -> Result<(), TimesheetsError> {
     announce_deadline(total_delta);
 
     Ok(())
+}
+
+fn main() {
+    match run_timesheets() {
+        Ok(_) => (),
+        Err(err) => eprintln!("{}", err),
+    }
 }

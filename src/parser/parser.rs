@@ -7,14 +7,12 @@ use token_packer::generic_utils::DropRules;
 #[grammar = "src/parser/parser.pest"]
 pub struct TimesheetsParser;
 
-pub fn parse_timesheets(code: &str) -> Result<Pairs<'_, Rule>, ::pest::error::Error<Rule>> {
+pub fn parse(code: &str) -> Result<Pairs<'_, Rule>, ::pest::error::Error<Rule>> {
     TimesheetsParser::parse(Rule::body, code)
 }
 
 impl DropRules for Rule {
-    type Rule = Rule;
-
-    fn get_drop_rules(&self) -> Vec<Rule> {
+    fn get_drop_rules(&self) -> Vec<Self> {
         vec![ Rule::TAB ]
     }
 }

@@ -7,9 +7,7 @@ week = { "WEEK" ~ DATE ~ newline ~ days }
 
 days = { day ~ (newline ~ day){0,4} }
 
-day = { TAB ~ WEEKDAY ~ newline ~ logs }
-
-logs = { log+ }
+day = { TAB ~ WEEKDAY ~ newline ~ log+ }
 
 log = { TAB ~ TAB ~ log_event ~ newline }
 
@@ -21,7 +19,7 @@ log_event =
     | leave
     }
 
-NOW = { "NOW" } // Come back to this. You can imply this without having to do this.
+NOW = { "NOW" } // Come back to this. You should hopefully be able to match on the string literal at some point
 
 time_range_end = { TIME | NOW }
 
@@ -41,19 +39,21 @@ lunch = { "LUNCH" ~ time_period ~ summary? }
 
 newline = _{ NEWLINE }
 
-summary = _{ "|" ~ REST_OF_LINE }
+summary = _{ "|" ~ SUMMARY }
+
+SUMMARY = { REST_OF_LINE }
 
 DATE = { REST_OF_LINE } // Might want to refine this, later... might not.
 
 REST_OF_LINE = _{ (&!NEWLINE ~ ANY)+ }
 
-TIME = { NUMBER{2} ~ ":" ~ NUMBER{2} }
+TIME = @{ NUMBER{2} ~ ":" ~ NUMBER{2} }
 
 PERIOD_MINUTES = { numbers ~ "m" }
 
 PERIOD_HOURS = { numbers ~ "h" }
 
-numbers = { NUMBER+ }
+numbers = @{ NUMBER+ }
 
 period_hours_minutes = { PERIOD_HOURS ~ PERIOD_MINUTES? }
 

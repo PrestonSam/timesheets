@@ -3,13 +3,20 @@ use std::fmt::Display;
 use chrono::{Local, TimeDelta};
 use once_cell::sync::Lazy;
 
-use crate::packer::{
-    BreakLog, Date, Day, Days, Hours, HoursMinutes, LeaveLog, Log, LogEvent, Logs, LunchLog, Minutes, Number,
+use crate::parser::{
+    BreakLog, Date, Day, Days, Hours, HoursMinutes, LeaveLog, Log, LogEvent, LunchLog, Minutes, Number,
     Period, Time, TimePeriod, TimeRange, TimeRangeEnd, Week, Weekday, Weeks, WorkLog, WorkingDayLog
 };
 
 #[derive(Debug)]
 pub enum EvalError { // TODO
+}
+
+
+impl std::fmt::Display for EvalError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Eval error goes here")
+    }
 }
 
 fn delta_to_str(delta: &TimeDelta) -> String {
@@ -70,13 +77,13 @@ pub struct TotalDelta {
 impl Display for TotalDelta {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if 4 < self.week_deltas.len() {
-            f.write_str("\n      ...     Previous weeks truncated\n\n")?;
+            f.write_str("\n      . . .   Previous weeks truncated\n\n")?;
         }
 
         self.week_deltas
             .iter()
             .rev().take(4).rev()
-            .map(|w| f.write_fmt(format_args!("{w}")))
+            .map(|w| w.fmt(f))
             .collect::<Result<(), _>>()?;
 
         fn get_credit_str(delta: &TimeDelta) -> &'static str {
@@ -116,12 +123,16 @@ fn eval_period(period: Period) -> Result<TimeDelta, EvalError> {
 fn eval_time_range(time_range: TimeRange) -> Result<TimeDelta, EvalError> {
     let TimeRange(Time(start), end) = time_range;
 
+    let now = Local::now().time();
+
     let end = match end {
         TimeRangeEnd::Time(Time(end)) =>
             end,
+            // cmp::min(end, now), // Should be capped at 'now' if evaluating the current day
+            // Sadly that information is out of scope at the moment
 
         TimeRangeEnd::Now(_) =>
-            Local::now().time(),
+            now,
     };
 
     Ok(end - start)
@@ -141,11 +152,11 @@ fn eval_log(log: Log) -> Result<TimeDelta, EvalError> {
     let Log(event) = log;
 
     let period = match event {
-        LogEvent::Break(BreakLog(period)) => -(eval_time_period(period)?),
-        LogEvent::Leave(LeaveLog(period)) => eval_time_period(period)?,
-        LogEvent::Lunch(LunchLog(period)) => -(eval_time_period(period)?),
-        LogEvent::Work(WorkLog(period)) => eval_time_period(period)?,
-        LogEvent::WorkingDay(WorkingDayLog(period)) => eval_time_period(period)?,
+        LogEvent::Break(BreakLog(period, _)) => -(eval_time_period(period)?),
+        LogEvent::Leave(LeaveLog(period, _)) => eval_time_period(period)?,
+        LogEvent::Lunch(LunchLog(period, _)) => -(eval_time_period(period)?),
+        LogEvent::Work(WorkLog(period, _)) => eval_time_period(period)?,
+        LogEvent::WorkingDay(WorkingDayLog(period, _)) => eval_time_period(period)?,
     };
 
     Ok(period)
@@ -155,7 +166,7 @@ static WORKING_DAY: Lazy<TimeDelta>
     = Lazy::new(|| TimeDelta::hours(7) + TimeDelta::minutes(30));
 
 fn eval_day(day: Day) -> Result<DayDelta, EvalError> {
-    let Day(Weekday(weekday), Logs(logs)) = day;
+    let Day(Weekday(weekday), logs) = day;
 
     let had_lunch = logs.iter()
         .any(|log| matches!(log, Log(LogEvent::Lunch(_))));
@@ -163,7 +174,7 @@ fn eval_day(day: Day) -> Result<DayDelta, EvalError> {
     logs.into_iter()
         .map(eval_log)
         .sum::<Result<TimeDelta, _>>()
-        .map(|delta| DayDelta {  had_lunch, weekday, delta: delta - *WORKING_DAY })
+        .map(|delta| DayDelta { had_lunch, weekday, delta: delta - *WORKING_DAY })
 }
 
 fn eval_week(week: Week) -> Result<WeekDelta, EvalError> {
@@ -192,12 +203,12 @@ pub fn evaluate_timesheets(weeks: Weeks) -> Result<TotalDelta, EvalError> {
                     .map(|w| w.week_delta)
                     .sum();
 
-            // TODO add check to make sure this is actually today. Currently assumes that today is already in the process of being logged
-            let today_delta = week_deltas
-                .last()
+            // TODO add check to make sure this is actually today.
+            // Currently assumes that today is already in the process of being logged
+            let today_delta = week_deltas.last()
                 .and_then(|w| w.day_deltas.last())
                 .map(|day| day.delta)
-                .unwrap_or_else(|| TimeDelta::zero());
+                .unwrap_or_else(TimeDelta::zero);
 
             TotalDelta {
                 total_delta, 
