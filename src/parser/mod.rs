@@ -1,5 +1,5 @@
 use pest::iterators::Pairs;
-use token_packer::{generic_utils::{PackingError, SyntaxTree}, pack_trees::{unpack_only_tree, TokenPacker}};
+use lang_packer_model::{generic_utils::{PackingError, SyntaxTree}, pack_trees::{unpack_only_tree, TokenPacker}};
 
 use parser::parse;
 

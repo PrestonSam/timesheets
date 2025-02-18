@@ -8,8 +8,8 @@ use crate::parser::Rule;
 pub struct Date(pub String);
 
 #[derive(Debug, Packer)]
-#[packer(rule = Rule::WEEKDAY)]
-pub struct Weekday(pub String);
+#[packer(rule = Rule::DAY_NAME)]
+pub struct DayName(pub String);
 
 #[derive(Debug, Packer)]
 #[packer(rule = Rule::SUMMARY)]
@@ -100,7 +100,7 @@ pub struct Log(pub LogEvent);
 
 #[derive(Debug, Packer)]
 #[packer(rule = Rule::day)]
-pub struct Day(pub Weekday, pub Vec<Log>);
+pub struct Day(pub DayName, pub Vec<Log>);
 
 #[derive(Debug, Packer)]
 #[packer(rule = Rule::days)]

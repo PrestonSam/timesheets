@@ -4,8 +4,8 @@ use chrono::{Local, TimeDelta};
 use once_cell::sync::Lazy;
 
 use crate::parser::{
-    BreakLog, Date, Day, Days, Hours, HoursMinutes, LeaveLog, Log, LogEvent, LunchLog, Minutes, Number,
-    Period, Time, TimePeriod, TimeRange, TimeRangeEnd, Week, Weekday, Weeks, WorkLog, WorkingDayLog
+    BreakLog, Date, Day, DayName, Days, Hours, HoursMinutes, LeaveLog, Log, LogEvent, LunchLog, Minutes,
+    Number, Period, Time, TimePeriod, TimeRange, TimeRangeEnd, Week, Weeks, WorkLog, WorkingDayLog
 };
 
 #[derive(Debug)]
@@ -123,8 +123,6 @@ fn eval_period(period: Period) -> Result<TimeDelta, EvalError> {
 fn eval_time_range(time_range: TimeRange) -> Result<TimeDelta, EvalError> {
     let TimeRange(Time(start), end) = time_range;
 
-    let now = Local::now().time();
-
     let end = match end {
         TimeRangeEnd::Time(Time(end)) =>
             end,
@@ -132,7 +130,7 @@ fn eval_time_range(time_range: TimeRange) -> Result<TimeDelta, EvalError> {
             // Sadly that information is out of scope at the moment
 
         TimeRangeEnd::Now(_) =>
-            now,
+            Local::now().time(),
     };
 
     Ok(end - start)
@@ -166,7 +164,7 @@ static WORKING_DAY: Lazy<TimeDelta>
     = Lazy::new(|| TimeDelta::hours(7) + TimeDelta::minutes(30));
 
 fn eval_day(day: Day) -> Result<DayDelta, EvalError> {
-    let Day(Weekday(weekday), logs) = day;
+    let Day(DayName(weekday), logs) = day;
 
     let had_lunch = logs.iter()
         .any(|log| matches!(log, Log(LogEvent::Lunch(_))));

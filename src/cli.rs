@@ -2,7 +2,7 @@ use std::{path::PathBuf, str::FromStr};
 
 use clap::{Subcommand, ValueEnum};
 use itertools::Itertools;
-use token_packer::{generic_utils::{PackingError, SyntaxTree}, pack_trees::{HasRule, TokenPacker}};
+use lang_packer_model::{generic_utils::{PackingError, SyntaxTree}, pack_trees::{HasRule, TokenPacker}};
 
 use crate::parser::{Rule, Time, TimeRange, TimeRangeEnd, TimesheetsParser};
 
@@ -12,7 +12,7 @@ pub struct TshArgs {
     pub file_path: PathBuf,
 
     #[command(subcommand)]
-    pub command: Action,
+    pub command: Option<Action>,
 }
 
 #[derive(Subcommand, Debug)]

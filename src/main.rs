@@ -1,8 +1,8 @@
-use std::{fs::read_to_string, ops::Not, path::PathBuf};
+use std::{fs::read_to_string, ops::Not, path::{Path, PathBuf}};
 
 use chrono::{DateTime, Local, TimeDelta};
 use clap::Parser;
-use cli::parse_cli;
+use cli::{parse_cli, Action, TshArgs};
 use evaluator::{evaluate_timesheets, EvalError, TotalDelta, WeekDelta};
 use parser::{parse_timesheets, ParsingError};
 
@@ -80,18 +80,8 @@ fn announce_deadline(total_delta: TotalDelta) {
     println!("    └───────┘")
 }
 
-fn run_timesheets() -> Result<(), TimesheetsError> {
-    let args = parse_cli();
-
-    match &args.command {
-        cli::Action::Start { log_type, time_range } =>
-            println!("{log_type:?}: {time_range}"),
-
-        cli::Action::End { log_type, time_range } =>
-            println!("{log_type:?}: {time_range}"),
-    }
-
-    let code = read_to_string(args.file_path)
+fn run_timesheets(path: &Path) -> Result<(), TimesheetsError> {
+    let code = read_to_string(path)
         .map_err(TimesheetsError::FileReadError)?;
 
     let timesheets = parse_timesheets(&code)
@@ -108,8 +98,22 @@ fn run_timesheets() -> Result<(), TimesheetsError> {
 }
 
 fn main() {
-    match run_timesheets() {
-        Ok(_) => (),
-        Err(err) => eprintln!("{}", err),
+    match parse_cli() {
+        TshArgs { file_path, command: None } => 
+            match run_timesheets(&file_path) {
+                Ok(_) => (),
+                Err(err) => eprintln!("{}", err),
+            }
+
+        // Still experimental
+        TshArgs { file_path: _file_path, command: Some(command) } => {
+            match command {
+                Action::Start { log_type, time_range } =>
+                    println!("{log_type:?}: {time_range}"),
+
+                Action::End { log_type, time_range } =>
+                    println!("{log_type:?}: {time_range}"),
+            }
+        }
     }
 }

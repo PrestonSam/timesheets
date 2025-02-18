@@ -1,6 +1,6 @@
 use pest_derive::Parser;
 use pest::{iterators::Pairs, Parser};
-use token_packer::generic_utils::DropRules;
+use lang_packer_model::generic_utils::DropRules;
 
 
 #[derive(Parser)]

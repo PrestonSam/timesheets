@@ -5,9 +5,9 @@ weeks = { newline* ~ week ~ (newline+ ~ week)* ~ newline* }
 
 week = { "WEEK" ~ DATE ~ newline ~ days }
 
-days = { day ~ (newline ~ day){0,4} }
+days = { day ~ (newline ~ day){0,6} }
 
-day = { TAB ~ WEEKDAY ~ newline ~ log+ }
+day = { TAB ~ DAY_NAME ~ newline ~ log+ }
 
 log = { TAB ~ TAB ~ log_event ~ newline }
 
@@ -31,11 +31,11 @@ work = { "WORK" ~ time_period ~ summary }
 
 working_day = { "WORKING DAY" ~ time_period ~ summary? }
 
+lunch = { "LUNCH" ~ time_period ~ summary? }
+
 break = { "BREAK" ~ time_period ~ summary }
 
 leave = { "LEAVE" ~ time_period ~ summary? }
-
-lunch = { "LUNCH" ~ time_period ~ summary? }
 
 newline = _{ NEWLINE }
 
@@ -62,12 +62,14 @@ PERIOD =
     | period_hours_minutes
     }
 
-WEEKDAY =
+DAY_NAME =
     { "Monday"
     | "Tuesday"
     | "Wednesday"
     | "Thursday"
     | "Friday"
+    | "Saturday"
+    | "Sunday"
     }
 
 TAB = @{ " "{2} }
