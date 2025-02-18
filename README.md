@@ -41,7 +41,7 @@ WEEK 23rd September 2024
 
 Running the program (or generated binary) on the file  
 `cargo r -- my-timesheet.tsh`  
-at 12:00 on the Tuessday will produce the following output:
+at 12:00 on Tuesday will produce the following output:
 ```
     ┌───────┐
     │ +3:04 │ Week starting 16th September 2024
