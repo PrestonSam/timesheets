@@ -11,17 +11,13 @@ pub struct Date(pub String);
 #[packer(rule = Rule::DAY_NAME)]
 pub struct DayName(pub String);
 
-#[derive(Debug, Packer)]
-#[packer(rule = Rule::SUMMARY)]
-pub struct Summary(String);
-
 #[derive(Debug, Clone, Packer)]
 #[packer(rule = Rule::TIME)]
 pub struct Time(pub NaiveTime);
 
 #[derive(Debug, Packer)]
 #[packer(rule = Rule::numbers)]
-pub struct Number(pub usize);
+pub struct Number(pub i64);
 
 #[derive(Debug, Packer)]
 #[packer(rule = Rule::PERIOD_MINUTES)]
@@ -66,23 +62,23 @@ pub enum TimePeriod {
 
 #[derive(Debug, Packer)]
 #[packer(rule = Rule::work)]
-pub struct WorkLog(pub TimePeriod, pub Summary);
+pub struct WorkLog(pub TimePeriod);
 
 #[derive(Debug, Packer)]
 #[packer(rule = Rule::working_day)]
-pub struct WorkingDayLog(pub TimePeriod, pub Option<Summary>);
+pub struct WorkingDayLog(pub TimePeriod);
 
 #[derive(Debug, Packer)]
 #[packer(rule = Rule::lunch)]
-pub struct LunchLog(pub TimePeriod, pub Option<Summary>);
+pub struct LunchLog(pub TimePeriod);
 
 #[derive(Debug, Packer)]
 #[packer(rule = Rule::r#break)]
-pub struct BreakLog(pub TimePeriod, pub Summary);
+pub struct BreakLog(pub TimePeriod);
 
 #[derive(Debug, Packer)]
 #[packer(rule = Rule::leave)]
-pub struct LeaveLog(pub TimePeriod, pub Option<Summary>);
+pub struct LeaveLog(pub TimePeriod);
 
 #[derive(Debug, Packer)]
 #[packer(rule = Rule::log_event)]
@@ -172,13 +168,9 @@ impl std::fmt::Display for TimePeriod {
 
 impl std::fmt::Display for WorkingDayLog {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let WorkingDayLog(period, maybe_summary) = self;
+        let WorkingDayLog(period) = self;
 
         f.write_fmt(format_args!("    WORKING DAY {period}"))?;
-
-        if let Some(Summary(summary)) = maybe_summary {
-            f.write_fmt(format_args!(" | {summary}"))?;
-        }
 
         Ok(())
    }

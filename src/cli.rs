@@ -3,8 +3,10 @@ use std::{path::PathBuf, str::FromStr};
 use clap::{Subcommand, ValueEnum};
 use itertools::Itertools;
 use lang_packer_model::{generic_utils::{PackingError, SyntaxTree}, pack_trees::{HasRule, TokenPacker}};
+use pest::Parser;
+use thiserror::Error;
 
-use crate::parser::{Rule, Time, TimeRange, TimeRangeEnd, TimesheetsParser};
+use crate::parser::{Rule, Time, TimeRangeEnd, TimesheetsParser};
 
 #[derive(clap::Parser, Debug)]
 #[command(version, about)]
@@ -36,36 +38,31 @@ pub enum Action {
     },
 }
 
+#[derive(Error, Debug)]
 pub enum RuleParseError {
-    ParsingError(::pest::error::Error<Rule>),
-    ExactlyOneError(String),
-    PackingError(PackingError<Rule>),
-}
+    #[error("{0}")]
+    ParsingError(#[from] ::pest::error::Error<Rule>),
 
-impl std::fmt::Display for RuleParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RuleParseError::ParsingError(error) => f.write_fmt(format_args!("{error}")),
-            RuleParseError::ExactlyOneError(str) => f.write_str(str),
-            RuleParseError::PackingError(packing_error) => f.write_fmt(format_args!("{packing_error}")),
-        }
-    }
+    #[error("{0}")]
+    ExactlyOneError(String),
+
+    #[error("{0}")]
+    PackingError(#[from] PackingError<Rule>),
 }
 
 // This should be abstracted as this is a necessary manner for parsing.
-fn parse_struct<Struct>(s: &str, rule: Rule) -> Result<Struct, RuleParseError>
+fn parse_struct<S>(s: &str, rule: Rule) -> Result<S, RuleParseError>
 where
-    Struct: TokenPacker + HasRule<Rule = Rule>,
+    S: TokenPacker + HasRule<Rule = Rule>,
 {
-    let pairs = <TimesheetsParser as pest::Parser<Rule>>::parse(rule, s)
-        .map_err(RuleParseError::ParsingError)?;
+    let pairs = TimesheetsParser::parse(rule, s)?;
 
     let tree = pairs.into_iter()
         .map(SyntaxTree::from)
         .exactly_one()
-        .map_err(|err| RuleParseError::ExactlyOneError(format!("{err}")))?;
+        .map_err(|err| RuleParseError::ExactlyOneError(err.to_string()))?;
     
-    Struct::pack(tree)
+    S::pack(&tree)
         .map_err(RuleParseError::PackingError)
 }
 

@@ -13,6 +13,6 @@ pub fn parse(code: &str) -> Result<Pairs<'_, Rule>, ::pest::error::Error<Rule>> 
 
 impl DropRules for Rule {
     fn get_drop_rules(&self) -> Vec<Self> {
-        vec![ Rule::TAB ]
+        vec![ Rule::TAB, Rule::SUMMARY ]
     }
 }

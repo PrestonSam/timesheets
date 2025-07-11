@@ -8,18 +8,14 @@ use crate::parser::{
     Number, Period, Time, TimePeriod, TimeRange, TimeRangeEnd, Week, Weeks, WorkLog, WorkingDayLog
 };
 
-#[derive(Debug)]
-pub enum EvalError { // TODO
-}
-
-
-impl std::fmt::Display for EvalError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Eval error goes here")
+fn get_credit_str(delta: &TimeDelta) -> &'static str {
+    match delta.num_seconds().is_positive() {
+        true => "CREDIT",
+        false => "DEFICIT",
     }
 }
 
-fn delta_to_str(delta: &TimeDelta) -> String {
+fn time_delta_to_string(delta: &TimeDelta) -> String {
     let delta_in_minutes = delta.num_minutes().abs();
     let (hours, minutes) = (delta_in_minutes / 60, delta_in_minutes % 60);
     let sign = match delta.num_minutes().is_negative() {
@@ -49,17 +45,17 @@ pub struct WeekDelta {
 
 impl Display for WeekDelta {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let starting_date = self.starting_date.as_str();
-        let week_surplus_str = delta_to_str(&self.week_delta);
-
         f.write_fmt(format_args!( 
 "    ┌───────┐
-    │ {week_surplus_str:<5} │ Week starting {starting_date}
+    │ {:<5} │ Week starting {}
     ├───────┤
-"))?;
+",
+            time_delta_to_string(&self.week_delta),
+            self.starting_date
+        ))?;
         
         for DayDelta { weekday, delta, .. } in self.day_deltas.iter() {
-            f.write_fmt(format_args!("    │ {:<5} │ {weekday}\n", delta_to_str(&delta)))?;
+            f.write_fmt(format_args!("    │ {:<5} │ {weekday}\n", time_delta_to_string(delta)))?;
         }
 
         f.write_str("    └───────┘\n")?;
@@ -84,134 +80,134 @@ impl Display for TotalDelta {
             .iter()
             .rev().take(4).rev()
             .map(|w| w.fmt(f))
-            .collect::<Result<(), _>>()?;
+            .collect::<std::fmt::Result>()?;
 
-        fn get_credit_str(delta: &TimeDelta) -> &'static str {
-            match delta.num_seconds().is_positive() {
-                true => "CREDIT",
-                false => "DEFICIT",
-            }
+        f.write_fmt(format_args!(
+"    ┌───────┐
+    │ {:<5} │ TOTAL {} BEFORE TODAY
+    │ {:<5} │ TOTAL {} NOW
+    └───────┘
+",
+            time_delta_to_string(&self.total_delta_excluding_today),
+            get_credit_str(&self.total_delta_excluding_today),
+            time_delta_to_string(&self.total_delta),
+            get_credit_str(&self.total_delta),
+        ))
+    }
+}
+
+impl Period {
+    fn evaluate(self) -> TimeDelta {
+        match self {
+            Period::HoursMinutes(HoursMinutes(Hours(Number(hours)), Minutes(Number(minutes)))) =>
+                TimeDelta::hours(hours) + TimeDelta::minutes(minutes),
+
+            Period::Minutes(Minutes(Number(minutes))) =>
+                TimeDelta::minutes(minutes),
         }
-
-        f.write_str("    ┌───────┐\n")?;
-        f.write_fmt(format_args!(
-            "    │ {:<5} │ TOTAL {} BEFORE TODAY\n",
-            delta_to_str(&self.total_delta_excluding_today),
-            get_credit_str(&self.total_delta_excluding_today)
-        ))?;
-        f.write_fmt(format_args!(
-            "    │ {:<5} │ TOTAL {} NOW\n",
-            delta_to_str(&self.total_delta),
-            get_credit_str(&self.total_delta)
-        ))?;
-        f.write_str("    └───────┘\n")?;
-
-        Ok(())
     }
 }
 
-fn eval_period(period: Period) -> Result<TimeDelta, EvalError> {
-    match period {
-        Period::HoursMinutes(HoursMinutes(Hours(Number(hours)), Minutes(Number(minutes)))) =>
-            Ok(TimeDelta::hours(hours as i64) + TimeDelta::minutes(minutes as i64)),
+impl TimeRange {
+    fn evaluate(self) -> TimeDelta {
+        let TimeRange(Time(start), end) = self;
 
-        Period::Minutes(Minutes(Number(minutes))) =>
-            Ok(TimeDelta::minutes(minutes as i64)),
+        let end = match end {
+            TimeRangeEnd::Time(Time(end)) =>
+                end,
+                // cmp::min(end, now), // Should be capped at 'now' if evaluating the current day
+                // Sadly that information is out of scope at the moment
+
+            TimeRangeEnd::Now(_) =>
+                Local::now().time(),
+        };
+
+        end - start
     }
 }
 
-fn eval_time_range(time_range: TimeRange) -> Result<TimeDelta, EvalError> {
-    let TimeRange(Time(start), end) = time_range;
-
-    let end = match end {
-        TimeRangeEnd::Time(Time(end)) =>
-            end,
-            // cmp::min(end, now), // Should be capped at 'now' if evaluating the current day
-            // Sadly that information is out of scope at the moment
-
-        TimeRangeEnd::Now(_) =>
-            Local::now().time(),
-    };
-
-    Ok(end - start)
-}
-
-fn eval_time_period(time_period: TimePeriod) -> Result<TimeDelta, EvalError> {
-    match time_period {
-        TimePeriod::Period(period) =>
-            eval_period(period),
-
-        TimePeriod::TimeRange(time_range) =>
-            eval_time_range(time_range),
+impl TimePeriod {
+    fn evaluate(self) -> TimeDelta {
+        match self {
+            TimePeriod::Period(period) => period.evaluate(),
+            TimePeriod::TimeRange(time_range) => time_range.evaluate(),
+        }
     }
 }
 
-fn eval_log(log: Log) -> Result<TimeDelta, EvalError> {
-    let Log(event) = log;
+impl Log {
+    fn evaluate(self) -> TimeDelta {
+        let Log(event) = self;
 
-    let period = match event {
-        LogEvent::Break(BreakLog(period, _)) => -(eval_time_period(period)?),
-        LogEvent::Leave(LeaveLog(period, _)) => eval_time_period(period)?,
-        LogEvent::Lunch(LunchLog(period, _)) => -(eval_time_period(period)?),
-        LogEvent::Work(WorkLog(period, _)) => eval_time_period(period)?,
-        LogEvent::WorkingDay(WorkingDayLog(period, _)) => eval_time_period(period)?,
-    };
-
-    Ok(period)
+        match event {
+            LogEvent::Break(BreakLog(period)) => -period.evaluate(),
+            LogEvent::Leave(LeaveLog(period)) => period.evaluate(),
+            LogEvent::Lunch(LunchLog(period)) => -period.evaluate(),
+            LogEvent::Work(WorkLog(period)) => period.evaluate(),
+            LogEvent::WorkingDay(WorkingDayLog(period)) => period.evaluate(),
+        }
+    }
 }
 
 static WORKING_DAY: Lazy<TimeDelta>
     = Lazy::new(|| TimeDelta::hours(7) + TimeDelta::minutes(30));
 
-fn eval_day(day: Day) -> Result<DayDelta, EvalError> {
-    let Day(DayName(weekday), logs) = day;
+impl Day {
+    fn evaluate(self) -> DayDelta {
+        let Day(DayName(weekday), logs) = self;
 
-    let had_lunch = logs.iter()
-        .any(|log| matches!(log, Log(LogEvent::Lunch(_))));
+        let had_lunch = logs.iter()
+            .any(|log| matches!(log, Log(LogEvent::Lunch(_))));
 
-    logs.into_iter()
-        .map(eval_log)
-        .sum::<Result<TimeDelta, _>>()
-        .map(|delta| DayDelta { had_lunch, weekday, delta: delta - *WORKING_DAY })
+        let delta = logs.into_iter()
+            .map(Log::evaluate)
+            .sum::<TimeDelta>();
+
+        DayDelta {
+            had_lunch,
+            weekday,
+            delta: delta - *WORKING_DAY
+        }
+    }
 }
 
-fn eval_week(week: Week) -> Result<WeekDelta, EvalError> {
+fn eval_week(week: Week) -> WeekDelta {
     let Week(Date(starting_date), Days(days)) = week;
 
-    days.into_iter()
-        .map(eval_day)
-        .collect::<Result<Vec<_>, EvalError>>()
-        .map(|day_deltas| WeekDelta {
-            starting_date,
-            week_delta: day_deltas.iter()
-                .map(|d| d.delta)
-                .sum(),
-            day_deltas
-        })
+    let day_deltas = days.into_iter()
+        .map(Day::evaluate)
+        .collect::<Vec<_>>();
+
+    WeekDelta {
+        starting_date,
+        week_delta: day_deltas.iter()
+            .map(|d| d.delta)
+            .sum(),
+        day_deltas
+    }
 }
 
-pub fn evaluate_timesheets(weeks: Weeks) -> Result<TotalDelta, EvalError> {
+pub fn evaluate_timesheets(weeks: Weeks) -> TotalDelta {
     let Weeks(weeks) = weeks;
 
-    weeks.into_iter()
+    let week_deltas = weeks.into_iter()
         .map(eval_week)
-        .collect::<Result<Vec<_>, EvalError>>()
-        .map(|week_deltas| {
-            let total_delta = week_deltas.iter()
-                    .map(|w| w.week_delta)
-                    .sum();
+        .collect::<Vec<_>>();
 
-            // TODO add check to make sure this is actually today.
-            // Currently assumes that today is already in the process of being logged
-            let today_delta = week_deltas.last()
-                .and_then(|w| w.day_deltas.last())
-                .map(|day| day.delta)
-                .unwrap_or_else(TimeDelta::zero);
+    let total_delta = week_deltas.iter()
+        .map(|w| w.week_delta)
+        .sum();
 
-            TotalDelta {
-                total_delta, 
-                total_delta_excluding_today: total_delta - today_delta,
-                week_deltas,
-            }
-        })
+    // TODO add check to make sure this is actually today.
+    // Currently assumes that today is already in the process of being logged
+    let today_delta = week_deltas.last()
+        .and_then(|w| w.day_deltas.last())
+        .map(|day| day.delta)
+        .unwrap_or_else(TimeDelta::zero);
+
+    TotalDelta {
+        total_delta, 
+        total_delta_excluding_today: total_delta - today_delta,
+        week_deltas,
+    }
 }

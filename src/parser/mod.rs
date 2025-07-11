@@ -36,7 +36,7 @@ pub fn pack(pairs: Pairs<'_, Rule>) -> Result<Weeks, PackingError<Rule>> {
     let trees: Vec<_> = pairs.map(SyntaxTree::from)
         .collect();
 
-    unpack_only_tree(trees)
+    unpack_only_tree(&trees)
         .and_then(Body::pack)
         .map(|body| body.0)
 }

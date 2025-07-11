@@ -3,7 +3,7 @@ use std::{fs::read_to_string, ops::Not, path::{Path, PathBuf}};
 use chrono::{DateTime, Local, TimeDelta};
 use clap::Parser;
 use cli::{parse_cli, Action, TshArgs};
-use evaluator::{evaluate_timesheets, EvalError, TotalDelta, WeekDelta};
+use evaluator::{evaluate_timesheets, TotalDelta, WeekDelta};
 use parser::{parse_timesheets, ParsingError};
 
 mod cli;
@@ -26,7 +26,6 @@ struct Args {
 enum TimesheetsError {
     FileReadError(std::io::Error),
     ParsingError(ParsingError),
-    EvalError(EvalError),
 }
 
 impl std::fmt::Display for TimesheetsError {
@@ -34,7 +33,6 @@ impl std::fmt::Display for TimesheetsError {
         match self {
             TimesheetsError::FileReadError(err) => err.fmt(f),
             TimesheetsError::ParsingError(err) => err.fmt(f),
-            TimesheetsError::EvalError(err) => err.fmt(f),
         }
     }
 }
@@ -87,8 +85,7 @@ fn run_timesheets(path: &Path) -> Result<(), TimesheetsError> {
     let timesheets = parse_timesheets(&code)
         .map_err(TimesheetsError::ParsingError)?;
 
-    let total_delta = evaluate_timesheets(timesheets)
-        .map_err(TimesheetsError::EvalError)?;
+    let total_delta = evaluate_timesheets(timesheets);
 
     print!("{total_delta}");
 
