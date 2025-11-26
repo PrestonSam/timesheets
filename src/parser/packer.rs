@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use chrono::NaiveTime;
 use lang_packer::Packer;
 
@@ -29,7 +31,7 @@ pub struct Hours(pub Number);
 
 #[derive(Debug, Packer)]
 #[packer(rule = Rule::period_hours_minutes)]
-pub struct HoursMinutes(pub Hours, pub Minutes);
+pub struct HoursMinutes(pub Hours, pub Option<Minutes>);
 
 #[derive(Debug, Packer)]
 #[packer(rule = Rule::PERIOD)]
@@ -120,6 +122,21 @@ pub struct Body(pub Weeks, pub EOI);
 
 
 
+impl Deref for Hours {
+    type Target = i64;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0.0
+    }
+}
+
+impl Deref for Minutes {
+    type Target = i64;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0.0
+    }
+} 
 
 
 impl std::fmt::Display for Period {
@@ -128,7 +145,10 @@ impl std::fmt::Display for Period {
             Period::Minutes(Minutes(Number(minutes))) =>
                 f.write_fmt(format_args!("{minutes}m")),
 
-            Period::HoursMinutes(HoursMinutes(Hours(Number(hours)), Minutes(Number(minutes)))) =>
+            Period::HoursMinutes(HoursMinutes(Hours(Number(hours)), None)) =>
+                f.write_fmt(format_args!("{hours}h")),
+
+            Period::HoursMinutes(HoursMinutes(Hours(Number(hours)), Some(Minutes(Number(minutes))))) =>
                 f.write_fmt(format_args!("{hours}h {minutes}m")),
         }
     }

@@ -1,17 +1,20 @@
 use pest::iterators::Pairs;
-use lang_packer_model::{generic_utils::{PackingError, SyntaxTree}, pack_trees::{unpack_only_tree, TokenPacker}};
+use lang_packer_model::{
+    generic_utils::{PackingError, SyntaxTree},
+    pack_trees::{unpack_only_tree, TokenPacker}
+};
 
-use parser::parse;
+use parser_impl::parse;
 
-mod parser;
+mod parser_impl;
 mod packer;
 
-pub use parser::{TimesheetsParser, Rule};
+pub use parser_impl::{TimesheetsParser, Rule};
 pub use packer::*;
 
 #[derive(Debug)]
 pub enum ParsingError {
-    PestError(::pest::error::Error<Rule>),
+    PestError(Box<::pest::error::Error<Rule>>),
     PackingError(PackingError<Rule>),
 }
 
@@ -40,3 +43,4 @@ pub fn pack(pairs: Pairs<'_, Rule>) -> Result<Weeks, PackingError<Rule>> {
         .and_then(Body::pack)
         .map(|body| body.0)
 }
+

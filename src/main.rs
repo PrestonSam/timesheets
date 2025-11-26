@@ -1,14 +1,14 @@
-use std::{fs::read_to_string, ops::Not, path::{Path, PathBuf}};
+use std::{fs::read_to_string, path::{Path, PathBuf}};
 
-use chrono::{DateTime, Local, TimeDelta};
 use clap::Parser;
 use cli::{parse_cli, Action, TshArgs};
-use evaluator::{evaluate_timesheets, TotalDelta, WeekDelta};
+use evaluator::evaluate_timesheets;
 use parser::{parse_timesheets, ParsingError};
 
 mod cli;
 mod parser;
 mod evaluator;
+mod utils;
 
 #[derive(Parser, Debug)]
 #[command(version, about)]
@@ -37,47 +37,6 @@ impl std::fmt::Display for TimesheetsError {
     }
 }
 
-fn get_lunch_deadline(deadline: &DateTime<Local>, week_deltas: &Vec<WeekDelta>) -> Option<DateTime<Local>> {
-    week_deltas.last()
-        ?.day_deltas.last()
-        ?.had_lunch.not()
-        .then(|| *deadline + TimeDelta::hours(1))
-}
-
-fn announce_deadline(total_delta: TotalDelta) {
-    // TODO record earliest start time for day
-    // Use that as the reference point to see if you've worked 7.5 hours yet.
-    // Figure out the difference and add that to the time.
-    let deadline = Local::now() - total_delta.total_delta;
-    let deadline_str = deadline.format("%H:%M");
-
-    println!("    ┌───────┐");
-    println!("    │ {deadline_str:<5} │ EARLIEST FINISH TIME");
-
-    if let Some(lunch_clause_earliest) = get_lunch_deadline(&deadline, &total_delta.week_deltas).map(|d| d.format("%H:%M")) {
-        println!("    │ {lunch_clause_earliest:<5} │ EARLIEST FINISH TIME + LUNCH")
-    }
-
-    println!("    ├───────┤");
-
-    let today_delta = total_delta.week_deltas
-        .last()
-        .and_then(|w| w.day_deltas.last())
-        .map(|day| day.delta)
-        .unwrap_or_else(|| TimeDelta::zero());
-
-    let today_deadline = Local::now() - today_delta;
-    let today_deadline_str = today_deadline.format("%H:%M");
-
-    println!("    │ {today_deadline_str:<5} │ RETAIN CREDIT");
-
-    if let Some(today_lunch_clause) = get_lunch_deadline(&today_deadline, &total_delta.week_deltas).map(|d| d.format("%H:%M")) {
-        println!("    │ {today_lunch_clause:<5} │ RETAIN CREDIT + LUNCH");
-    }
-
-    println!("    └───────┘")
-}
-
 fn run_timesheets(path: &Path) -> Result<(), TimesheetsError> {
     let code = read_to_string(path)
         .map_err(TimesheetsError::FileReadError)?;
@@ -88,8 +47,6 @@ fn run_timesheets(path: &Path) -> Result<(), TimesheetsError> {
     let total_delta = evaluate_timesheets(timesheets);
 
     print!("{total_delta}");
-
-    announce_deadline(total_delta);
 
     Ok(())
 }

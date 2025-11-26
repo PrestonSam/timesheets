@@ -1,35 +1,11 @@
-use std::fmt::Display;
-
 use chrono::{Local, TimeDelta};
 use once_cell::sync::Lazy;
 
-use crate::parser::{
-    BreakLog, Date, Day, DayName, Days, Hours, HoursMinutes, LeaveLog, Log, LogEvent, LunchLog, Minutes,
-    Number, Period, Time, TimePeriod, TimeRange, TimeRangeEnd, Week, Weeks, WorkLog, WorkingDayLog
-};
+use crate::parser::*;
 
-fn get_credit_str(delta: &TimeDelta) -> &'static str {
-    match delta.num_seconds().is_positive() {
-        true => "CREDIT",
-        false => "DEFICIT",
-    }
-}
-
-fn time_delta_to_string(delta: &TimeDelta) -> String {
-    let delta_in_minutes = delta.num_minutes().abs();
-    let (hours, minutes) = (delta_in_minutes / 60, delta_in_minutes % 60);
-    let sign = match delta.num_minutes().is_negative() {
-        true => '-',
-        false => '+',
-    };
-
-    let time_str = match hours {
-        0 => format!("{minutes}m", ),
-        _ => format!("{hours}:{minutes:0>2}"),
-    };
-
-    format!("{sign}{time_str:<4}")
-}
+// TODO this should be configuration
+static WORKING_DAY_DURATION: Lazy<TimeDelta> 
+    = Lazy::new(|| TimeDelta::hours(8) + TimeDelta::minutes(00));
 
 pub struct DayDelta {
     pub weekday: String,
@@ -43,67 +19,24 @@ pub struct WeekDelta {
     pub day_deltas: Vec<DayDelta>,
 }
 
-impl Display for WeekDelta {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!( 
-"    ┌───────┐
-    │ {:<5} │ Week starting {}
-    ├───────┤
-",
-            time_delta_to_string(&self.week_delta),
-            self.starting_date
-        ))?;
-        
-        for DayDelta { weekday, delta, .. } in self.day_deltas.iter() {
-            f.write_fmt(format_args!("    │ {:<5} │ {weekday}\n", time_delta_to_string(delta)))?;
-        }
-
-        f.write_str("    └───────┘\n")?;
-
-        Ok(())
-    }
-}
-
 pub struct TotalDelta {
     pub total_delta: TimeDelta,
     pub total_delta_excluding_today: TimeDelta,
     pub week_deltas: Vec<WeekDelta>,
 }
 
-impl Display for TotalDelta {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if 4 < self.week_deltas.len() {
-            f.write_str("\n      . . .   Previous weeks truncated\n\n")?;
-        }
-
-        self.week_deltas
-            .iter()
-            .rev().take(4).rev()
-            .map(|w| w.fmt(f))
-            .collect::<std::fmt::Result>()?;
-
-        f.write_fmt(format_args!(
-"    ┌───────┐
-    │ {:<5} │ TOTAL {} BEFORE TODAY
-    │ {:<5} │ TOTAL {} NOW
-    └───────┘
-",
-            time_delta_to_string(&self.total_delta_excluding_today),
-            get_credit_str(&self.total_delta_excluding_today),
-            time_delta_to_string(&self.total_delta),
-            get_credit_str(&self.total_delta),
-        ))
-    }
-}
 
 impl Period {
     fn evaluate(self) -> TimeDelta {
         match self {
-            Period::HoursMinutes(HoursMinutes(Hours(Number(hours)), Minutes(Number(minutes)))) =>
-                TimeDelta::hours(hours) + TimeDelta::minutes(minutes),
+            Period::HoursMinutes(HoursMinutes(hours, Some(minutes))) =>
+                TimeDelta::hours(*hours) + TimeDelta::minutes(*minutes),
 
-            Period::Minutes(Minutes(Number(minutes))) =>
-                TimeDelta::minutes(minutes),
+            Period::HoursMinutes(HoursMinutes(hours, None)) =>
+                TimeDelta::hours(*hours),
+
+            Period::Minutes(minutes) =>
+                TimeDelta::minutes(*minutes),
         }
     }
 }
@@ -149,9 +82,6 @@ impl Log {
     }
 }
 
-static WORKING_DAY: Lazy<TimeDelta>
-    = Lazy::new(|| TimeDelta::hours(7) + TimeDelta::minutes(30));
-
 impl Day {
     fn evaluate(self) -> DayDelta {
         let Day(DayName(weekday), logs) = self;
@@ -166,7 +96,7 @@ impl Day {
         DayDelta {
             had_lunch,
             weekday,
-            delta: delta - *WORKING_DAY
+            delta: delta - *WORKING_DAY_DURATION
         }
     }
 }

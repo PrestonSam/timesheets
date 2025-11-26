@@ -41,13 +41,13 @@ pub enum Action {
 #[derive(Error, Debug)]
 pub enum RuleParseError {
     #[error("{0}")]
-    ParsingError(#[from] ::pest::error::Error<Rule>),
+    Parsing(#[from] ::pest::error::Error<Rule>),
 
     #[error("{0}")]
-    ExactlyOneError(String),
+    ExactlyOne(String),
 
     #[error("{0}")]
-    PackingError(#[from] PackingError<Rule>),
+    Packing(#[from] PackingError<Rule>),
 }
 
 // This should be abstracted as this is a necessary manner for parsing.
@@ -60,10 +60,10 @@ where
     let tree = pairs.into_iter()
         .map(SyntaxTree::from)
         .exactly_one()
-        .map_err(|err| RuleParseError::ExactlyOneError(err.to_string()))?;
+        .map_err(|err| RuleParseError::ExactlyOne(err.to_string()))?;
     
     S::pack(&tree)
-        .map_err(RuleParseError::PackingError)
+        .map_err(RuleParseError::Packing)
 }
 
 impl FromStr for Time {

@@ -7,8 +7,9 @@ use lang_packer_model::generic_utils::DropRules;
 #[grammar = "src/parser/parser.pest"]
 pub struct TimesheetsParser;
 
-pub fn parse(code: &str) -> Result<Pairs<'_, Rule>, ::pest::error::Error<Rule>> {
+pub fn parse(code: &str) -> Result<Pairs<'_, Rule>, Box<::pest::error::Error<Rule>>> {
     TimesheetsParser::parse(Rule::body, code)
+        .map_err(Box::new)
 }
 
 impl DropRules for Rule {
